@@ -1,75 +1,74 @@
-# EKOU DevTools — Requerimientos · v1
+# EKOU DevTools — Requirements · v1
 
-**Producto:** `mfx-cli` (paquete npm) · comando `mfx` · marca EKOU.
-**Alcance v1:** definición de requerimientos. No incluye implementación.
+**Product:** `mfx-cli` (npm package) · command `mfx` · EKOU brand.
+**v1 scope:** requirements definition. Does not include implementation.
 
-## Convenciones
-- Historias de usuario en formato Given / When / Then.
-- Requisitos funcionales como `FR-xx`.
+## Conventions
+- User stories in Given / When / Then format.
+- Functional requirements as `FR-xx`.
 
-## Principios transversales de UX
-Aplican a TODOS los requisitos; no se repiten en cada uno:
-- **Feedback de estado siempre visible:** la CLI mantiene al usuario al tanto de
-  qué ocurre en cada MFE (loading, building, creating preview, purging, etc.).
-- **Logs en tiempo real:** toda operación que levante un MFE transmite su log en vivo.
-- **Errores claros:** cualquier error se muestra de forma legible y accionable.
+## Cross-cutting UX Principles
+Apply to ALL requirements; not repeated in each one:
+- **Status feedback always visible:** the CLI keeps the user informed of
+  what is happening in each MFE (loading, building, creating preview, purging, etc.).
+- **Real-time logs:** every operation that starts an MFE streams its log live.
+- **Clear errors:** any error is displayed in a readable and actionable way.
 
-## Distribución
-- **Given** un dev **when** necesita una devtool para administrar micro frontends
-  **then** puede instalarla desde npm como librería (`mfx-cli`).
-- **Given** un usuario con políticas estrictas de seguridad **when** instala `mfx-cli`
-  **then** puede instalarla como código fuente del cual es owner (estilo copy-paste de
-  código listo para ejecutar), no solo como dependencia.
+## Distribution
+- **Given** a dev **when** they need a devtool to manage microfrontends
+  **then** they can install it from npm as a library (`mfx-cli`).
+- **Given** a user with strict security policies **when** installing `mfx-cli`
+  **then** they can install it as source code they own (copy-paste style,
+  ready to run), not only as a dependency.
 
-## Configuración
-- **Given** un usuario **when** configura la CLI **then** puede hacerlo desde un archivo
-  de contrato legible (`mfx.config.json` con `$schema` para validación/autocompletado)
-  **o** desde un onboarding (`mfx init`) que genera ese mismo archivo.
-  El archivo es la fuente de verdad; el wizard solo lo produce.
-- Parámetros configurables en v1:
-  - **App Shell y su puerto:** por defecto, el primer puerto del rango efectivo.
-  - **Nombre del proyecto:** se muestra en el encabezado como `EKOU CLI — {nombreProyecto}`.
-  - **Rango de puertos** (ver §Asignación de puertos).
-  - **Comandos de ejecución por modo:** dev, build, build+watch, etc.; con soporte
-    para custom commands por modo.
+## Configuration
+- **Given** a user **when** configuring the CLI **then** they can do so from a
+  readable contract file (`mfx.config.json` with `$schema` for validation/autocompletion)
+  **or** from an onboarding wizard (`mfx init`) that generates that same file.
+  The file is the source of truth; the wizard only produces it.
+- Configurable parameters in v1:
+  - **App Shell and its port:** defaults to the first port in the effective range.
+  - **Project name:** displayed in the header as `EKOU CLI — {projectName}`.
+  - **Port range** (see §Port Assignment).
+  - **Run commands per mode:** dev, build, build+watch, etc.; with support
+    for custom commands per mode.
 
-## Asignación de puertos
-- `ports` omitido → default Vite (5173), asignación secuencial +1 por cada MFE.
-- `ports: 5000` (entero) → inicio de rango, secuencial +1 por MFE.
-- `ports: "5000-5060"` (string) → rango explícito, inclusivo en ambos extremos.
-- El App Shell toma siempre el primer puerto del rango efectivo.
-- Validación con error claro si: `fin < inicio`, rango insuficiente para la cantidad
-  de MFEs, o solapamiento de puertos.
+## Port Assignment
+- `ports` omitted → Vite default (5173), sequential +1 per MFE.
+- `ports: 5000` (integer) → range start, sequential +1 per MFE.
+- `ports: "5000-5060"` (string) → explicit range, inclusive on both ends.
+- The App Shell always takes the first port in the effective range.
+- Validation with a clear error if: `end < start`, range insufficient for the number
+  of MFEs, or port overlap.
 
 ## Theming
-- **FR-01** La CLI sigue la línea gráfica de EKOU; el tema **EKOU** es el default.
-- **FR-02** Ofrece varios temas predefinidos y permite definir un tema custom, al
-  estilo de la configuración de theming de Tailwind o MUI.
+- **FR-01** The CLI follows the EKOU visual identity; the **EKOU** theme is the default.
+- **FR-02** Offers several predefined themes and allows defining a custom theme,
+  in the style of Tailwind or MUI theming configuration.
 
-## Gestión de MFEs
-- **FR-03** Permite seleccionar qué MFE(s) levantar.
-- **FR-04** Cada MFE tiene puerto por defecto (modificable) y modo, ambos individuales.
-- **FR-05** Al levantar un MFE, abre el navegador en su URL **solo la primera vez**
-  que ese MFE corre en la sesión; en reinicios no vuelve a abrirlo.
-- **FR-06** Opción en el menú para abrir en navegador un MFE concreto o todos los
-  levantados; si hay varios, muestra un selector.
+## MFE Management
+- **FR-03** Allows selecting which MFE(s) to start.
+- **FR-04** Each MFE has a default port (editable) and mode, both individual.
+- **FR-05** When starting an MFE, opens the browser at its URL **only the first time**
+  that MFE runs in the session; on restarts it does not reopen it.
+- **FR-06** Menu option to open a specific MFE or all running ones in the browser;
+  if there are multiple, shows a selector.
 
 ## Logs
-- **FR-07** Muestra el log en vivo del MFE levantado.
-- **FR-08** Si un MFE corre en varios modos a la vez (ej. dev + build), muestra el log
-  de cada modo y permite navegar entre ellos con arrow keys para verlos individualmente.
+- **FR-07** Displays the live log of the running MFE.
+- **FR-08** If an MFE runs in multiple modes simultaneously (e.g. dev + build), displays
+  the log for each mode and allows navigating between them with arrow keys to view them individually.
 
-## Menú inferior persistente
-- **FR-09** Barra inferior siempre disponible con los comandos vigentes, ej.:
-  `↑↓ navegar` · `space toggle` · `a all` · `n none` · `p purge port {rango}` ·
-  `enter start` · `q quit`, además de las opciones disponibles según el contexto.
+## Persistent Bottom Menu
+- **FR-09** Bottom bar always available with the current commands, e.g.:
+  `↑↓ navigate` · `space toggle` · `a all` · `n none` · `p purge port {range}` ·
+  `enter start` · `q quit`, plus available options depending on context.
 
-## Panel de notificaciones
-- **FR-10** Panel de notificaciones encendible/apagable desde el menú inferior.
-- **FR-11** Muestra eventos en tiempo real (MFE levantado, MFE purgado, error al
-  levantar, etc.).
-- **FR-12** Configurable: el usuario elige qué tipos de notificación recibir.
+## Notifications Panel
+- **FR-10** Notifications panel togglable from the bottom menu.
+- **FR-11** Displays real-time events (MFE started, MFE purged, error starting, etc.).
+- **FR-12** Configurable: the user chooses which notification types to receive.
 
-## Mockup de UI
+## UI Mockup
 
-![Mockup de UI](assets/mockup-ui.png)
+![UI Mockup](assets/mockup-ui.png)

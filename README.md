@@ -15,3 +15,7 @@ Monorepo for Ekou developer tooling. Each app under `apps/` is an independent CL
 ## Contributing
 
 Work in progress. Contributing guide coming soon.
+
+## License
+
+Licencia: MIT — ver [LICENSE](LICENSE).

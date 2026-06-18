@@ -70,5 +70,6 @@ Apply to ALL requirements; not repeated in each one:
 - **FR-12** Configurable: the user chooses which notification types to receive.
 
 ## UI Mockup
+Claude design URL: https://claude.ai/design/p/36951933-d3f9-4f62-8697-5d626e5b8900?file=EKOU+CLI.dc.html&via=share
 
 ![UI Mockup](assets/mockup-ui.png)

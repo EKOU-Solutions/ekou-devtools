@@ -1,9 +1,9 @@
 # mfx-cli — Architecture
 
-CLI devtool para gestionar microfrontends bajo la marca EKOU. TUI interactiva
-construida con Ink, orquestación de procesos, asignación de puertos, theming
-configurable, y dos formas de instalación: como dependencia normal o como
-código fuente que el usuario es dueño.
+Interactive CLI devtool for managing microfrontends under the EKOU brand. Built
+with Ink for the terminal UI, process orchestration, port assignment, configurable
+theming, and two installation modes: as a regular npm dependency or as source code
+the user owns.
 
 ---
 
@@ -12,52 +12,52 @@ código fuente que el usuario es dueño.
 ```
 ekou-devtools/
 ├── apps/
-│   └── mfx-cli/          ← binario @ekou/mfx-cli
+│   └── mfx-cli/          ← @ekou/mfx-cli binary
 ├── packages/
 │   ├── core/             ← process manager, config parser, port assignment
-│   ├── tui/              ← componentes Ink reutilizables
-│   └── types/            ← tipos TypeScript compartidos
+│   ├── tui/              ← reusable Ink components
+│   └── types/            ← shared TypeScript types
 └── docs/
-    ├── requirements.md   ← especificación funcional (FR-01 a FR-12)
-    ├── architecture.md   ← este archivo
-    ├── adr/              ← decisiones de arquitectura, formato MADR
+    ├── requirements.md   ← functional spec (FR-01 to FR-12)
+    ├── architecture.md   ← this file
+    ├── adr/              ← architecture decision records (MADR format)
     └── assets/
 ```
 
-Turborepo orquesta build/test entre `apps/` y `packages/`. Solo
-`apps/mfx-cli` se publica a npm — `packages/*` son workspace-internal,
-nunca se instalan por separado.
+Turborepo orchestrates build/test across `apps/` and `packages/`. Only
+`apps/mfx-cli` is published to npm — `packages/*` are workspace-internal
+and never installed separately.
 
 ---
 
 ## Stack
 
-| Área | Elección |
+| Area | Choice |
 |---|---|
-| CLI framework | Commander.js + Ink (React para terminal) |
+| CLI framework | Commander.js + Ink (React for the terminal) |
 | Setup wizard | @clack/prompts |
 | Tests | Vitest + ink-testing-library + execa |
-| Decisiones de arq. | Formato MADR en `docs/adr/` |
+| Architecture decisions | MADR format in `docs/adr/` |
 
 ---
 
-## Arquitectura — capas
+## Architecture — layers
 
 ```mermaid
 flowchart TD
-    subgraph runtime["mfx-cli runtime (proceso Node único)"]
-        subgraph pres["Presentación (TUI)"]
-            ink["Árbol de componentes Ink"]
+    subgraph runtime["mfx-cli runtime (single Node process)"]
+        subgraph pres["Presentation (TUI)"]
+            ink["Ink component tree"]
         end
-        subgraph app["Capa de aplicación"]
-            orch["Orquestador + event bus"]
+        subgraph app["Application layer"]
+            orch["Orchestrator + event bus"]
         end
-        subgraph domain["Dominio y adapters"]
-            dom["Config, puertos, theme, I/O"]
+        subgraph domain["Domain & adapters"]
+            dom["Config, ports, theme, I/O"]
         end
     end
     config["mfx.config.json"]
-    children["Procesos hijos"]
+    children["Child processes"]
 
     ink --> orch
     orch --> dom
@@ -65,25 +65,25 @@ flowchart TD
     orch --> children
 ```
 
-`packages/tui` solo lee del event bus — nunca llama directo a `core`.
-Eso es lo que permite testear el orchestrator entero con
-`ink-testing-library` sin levantar ninguna TUI real.
+`packages/tui` only reads from the event bus — it never calls `core` directly.
+This is what allows testing the orchestrator end-to-end with
+`ink-testing-library` without spinning up any real TUI.
 
 ---
 
-## El event bus como columna vertebral
+## The event bus as backbone
 
 ```mermaid
 flowchart LR
-    subgraph domain["Dominio"]
-        cfg["Config + puertos + theme"]
-        orch["Process orchestrator\nLifecycle de cada MFE"]
+    subgraph domain["Domain"]
+        cfg["Config + ports + theme"]
+        orch["Process orchestrator\nMFE lifecycle"]
     end
-    bus["Event bus\nPub/sub de eventos"]
-    log["Log multiplexer\nBuffer por modo"]
-    notif["Notificaciones\nFiltra y emite"]
-    subgraph pres["Presentación"]
-        tui["Re-render reactivo"]
+    bus["Event bus\nPub/sub"]
+    log["Log multiplexer\nBuffer per mode"]
+    notif["Notifications\nFilter & emit"]
+    subgraph pres["Presentation"]
+        tui["Reactive re-render"]
     end
 
     cfg --> orch
@@ -94,13 +94,13 @@ flowchart LR
     notif --> tui
 ```
 
-El dominio (config/puertos/theme) nunca habla directo con la TUI. Por eso
-se puede apagar el panel de notificaciones (FR-10) sin tocar el orchestrator,
-o testear el orchestrator sin la TUI.
+The domain layer (config/ports/theme) never talks directly to the TUI. This means
+the notification panel (FR-10) can be toggled off without touching the orchestrator,
+and the orchestrator can be tested without any TUI.
 
 ---
 
-## Qué pasa al iniciar un MFE
+## MFE startup sequence
 
 ```mermaid
 sequenceDiagram
@@ -109,45 +109,45 @@ sequenceDiagram
     participant Adapter
     participant Bus
 
-    TUI->>Orchestrator: usuario presiona Enter → Orchestrator.start()
-    loop por MFE × modo seleccionado
+    TUI->>Orchestrator: user presses Enter → Orchestrator.start()
+    loop per MFE × selected mode
         Orchestrator->>Adapter: Adapter.spawn()
-        Adapter-->>Bus: streaming de logs + emit
+        Adapter-->>Bus: stream logs + emit
     end
     Bus-->>TUI: MFEStarted
 ```
 
 ---
 
-## Decisión: reapertura del navegador (FR-05)
+## Decision: browser reopening (FR-05)
 
 ```mermaid
 flowchart TD
-    start["MFE inicia"]
-    check{¿Primera vez\nen la sesión?}
-    open["Abre navegador"]
-    refresh["Solo refresca status"]
+    start["MFE starts"]
+    check{First time\nin the session?}
+    open["Open browser"]
+    refresh["Only refresh status"]
 
     start --> check
-    check -- Sí --> open
+    check -- Yes --> open
     check -- No --> refresh
 ```
 
-> **Pendiente:** falta un paso "¿está listo para aceptar conexiones?" antes de
-> abrir el navegador. Sin él, la primera vez puede abrirse contra un dev server
-> que aún no responde. Opciones: polling al puerto vs. parseo del log de
-> Vite/webpack. Ver §Pendientes.
+> **Open question:** there is no "ready to accept connections?" check before
+> opening the browser. Without it, the first open may hit a dev server that
+> hasn't finished starting. Options: poll the port vs. parse the Vite/webpack
+> log output. See §Open questions below.
 
 ---
 
-## Distribución: npm vs eject
+## Distribution: npm vs eject
 
 ```mermaid
 flowchart LR
     core["packages/core\nworkspace-only, ~0 deps"]
     cli["apps/mfx-cli"]
-    build["bundlea a esbuild"]
-    pkg["publicado como\n@ekou/mfx-cli"]
+    build["bundled with esbuild"]
+    pkg["published as\n@ekou/mfx-cli"]
     npm["npm install\n@ekou/mfx-cli"]
     eject["npx ... eject"]
     bundle[".mfx/index.js (bundle)"]
@@ -160,29 +160,29 @@ flowchart LR
     eject --> bundle
 ```
 
-**Opción 1 — como dependencia normal**
+**Option 1 — regular npm dependency**
 
 ```bash
 npm install @ekou/mfx-cli
 ```
 
-**Opción 2 — copy-paste (sin dependencia)**
+**Option 2 — copy-paste (no dependency)**
 
 ```bash
 npx @ekou/mfx-cli eject
 ```
 
-`eject` copia `apps/mfx-cli/` + `packages/core/` ya compilados (vía esbuild)
-a una carpeta `.mfx/` dentro del proyecto del usuario:
+`eject` copies `apps/mfx-cli/` + `packages/core/` already compiled (via esbuild)
+into a `.mfx/` folder inside the user's project:
 
 ```
-tu-proyecto/
+your-project/
 └── .mfx/
-    ├── index.js          ← bundle compilado, cero deps externas
+    ├── index.js          ← compiled bundle, zero external deps
     └── mfx.config.json
 ```
 
-Y agrega un script en `package.json`:
+And adds a script to `package.json`:
 
 ```json
 {
@@ -192,43 +192,43 @@ Y agrega un script en `package.json`:
 }
 ```
 
-Sin `node_modules/@ekou`, sin actualizaciones automáticas, sin dependencia
-de npm. La separación `core` + `cli` es lo que permite bundlear todo en un
-solo `index.js` autocontenido.
+No `node_modules/@ekou`, no automatic updates, no npm dependency. The
+`core` / `cli` separation is what makes it possible to bundle everything into
+a single self-contained `index.js`.
 
 ---
 
-## Decisiones de diseño clave
+## Key design decisions
 
-- **Result type en vez de excepciones** para errores esperados (config inválida,
-  overlap de puertos) → errores siempre claros y accionables.
-- **`packages/core` es zero-runtime-deps.** Toda validación de `mfx.config.json`
-  es hand-rolled; `zod` vive aislado en un script de generación del JSON Schema
-  (`config/schema-gen/`), nunca en el path de ejecución real.
-- **`Session`** (en `packages/core`) es la única fuente de verdad de "qué está
-  corriendo" y "qué ya se abrió en el navegador" — resuelve FR-05 y FR-08 sin
-  que la TUI ni el orchestrator lleven su propio estado paralelo.
-- **`assignPorts` es una función pura y determinística** → testeable con
-  property-based testing (`fast-check`) en vez de enumerar casos a mano.
-
----
-
-## Pendientes
-
-Abiertos — no implica que estén fuera de alcance, implica que faltan decidir:
-
-- [ ] Detección de "listo" antes de abrir el navegador (FR-05)
-- [ ] Comportamiento ante un MFE que truena solo, sin intervención del usuario
-- [ ] Propagación de Ctrl+C a todos los child processes (cierre limpio)
-- [ ] Dos instancias de `mfx` corriendo contra el mismo `mfx.config.json`
-- [ ] Soporte multiplataforma de purge de puertos (Windows vs. Unix)
-- [ ] Modo no-interactivo / CI (`--json`, códigos de salida)
-- [ ] Trust boundary explícito: comandos arbitrarios en `mfx.config.json`
-- [ ] Versionado y migración del schema de `mfx.config.json`
+- **Result type instead of exceptions** for expected errors (invalid config,
+  port overlap) → errors are always explicit and actionable.
+- **`packages/core` is zero-runtime-deps.** All `mfx.config.json` validation
+  is hand-rolled; `zod` lives in an isolated schema-generation script
+  (`config/schema-gen/`) that never runs on the hot path.
+- **`Session`** (in `packages/core`) is the single source of truth for "what is
+  running" and "what has already been opened in the browser" — resolves FR-05
+  and FR-08 without the TUI or orchestrator keeping their own parallel state.
+- **`assignPorts` is a pure, deterministic function** → testable with
+  property-based testing (`fast-check`) instead of hand-enumerating cases.
 
 ---
 
-## Ver también
+## Open questions
 
-- [requirements.md](requirements.md) — especificación funcional completa (FR-01 a FR-12)
-- [adr/](adr/) — decisiones de arquitectura individuales (MADR)
+Not out of scope — just not yet decided:
+
+- [ ] "Ready to accept connections" detection before opening the browser (FR-05)
+- [ ] Behavior when an MFE crashes on its own, without user action
+- [ ] Ctrl+C propagation to all child processes (clean shutdown)
+- [ ] Two `mfx` instances running against the same `mfx.config.json`
+- [ ] Cross-platform port purge (Windows vs. Unix)
+- [ ] Non-interactive / CI mode (`--json` flag, exit codes)
+- [ ] Explicit trust boundary: arbitrary shell commands in `mfx.config.json`
+- [ ] `mfx.config.json` schema versioning and migration
+
+---
+
+## See also
+
+- [requirements.md](requirements.md) — full functional spec (FR-01 to FR-12)
+- [adr/](adr/) — individual architecture decision records (MADR)

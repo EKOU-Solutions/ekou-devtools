@@ -1,79 +1,79 @@
 # ekou-devtools
 
-Monorepo para tooling de desarrollador bajo la marca EKOU.
-Cada app en `apps/` es un CLI independiente publicado bajo el scope `@ekou` en npm.
+Monorepo for EKOU developer tooling.
+Each app under `apps/` is an independent CLI published under the `@ekou` npm scope.
 
 ---
 
 ## Apps
 
-| Package | Descripción | Estado |
+| Package | Description | Status |
 |---|---|---|
-| `@ekou/mfx-cli` | CLI interactiva para correr múltiples microfrontends en paralelo | `planning` |
+| `@ekou/mfx-cli` | Interactive CLI to run multiple microfrontends in parallel | `planning` |
 
 ---
 
-## Inicio rápido
+## Quick start
 
-**Como dependencia npm:**
+**As an npm dependency:**
 
 ```bash
 npm install @ekou/mfx-cli
-npx mfx init        # genera mfx.config.json con wizard
-npx mfx             # lanza la TUI
+npx mfx init        # generates mfx.config.json via wizard
+npx mfx             # launches the TUI
 ```
 
-**Como código propio (eject):**
+**As owned source code (eject):**
 
 ```bash
 npx @ekou/mfx-cli eject
-# copia un bundle autocontenido a .mfx/index.js
-# agrega el script "mfx" a tu package.json
+# copies a self-contained bundle to .mfx/index.js
+# adds an "mfx" script to your package.json
 npm run mfx
 ```
 
 ---
 
-## Estructura del monorepo
+## Monorepo structure
 
 ```
 ekou-devtools/
 ├── apps/
-│   └── mfx-cli/          ← binario @ekou/mfx-cli (publicado a npm)
+│   └── mfx-cli/          ← @ekou/mfx-cli binary (published to npm)
 ├── packages/
 │   ├── core/             ← process manager, config parser, port assignment
-│   ├── tui/              ← componentes Ink reutilizables (workspace-internal)
-│   └── types/            ← tipos TypeScript compartidos (workspace-internal)
+│   ├── tui/              ← reusable Ink components (workspace-internal)
+│   └── types/            ← shared TypeScript types (workspace-internal)
 └── docs/
-    ├── requirements.md   ← especificación funcional (FR-01 a FR-12)
-    ├── architecture.md   ← decisiones de arquitectura y diagramas
-    ├── adr/              ← ADRs individuales, formato MADR
+    ├── requirements.md   ← functional spec (FR-01 to FR-12)
+    ├── architecture.md   ← architecture decisions and diagrams
+    ├── adr/              ← individual ADRs, MADR format
     └── assets/
 ```
 
-Solo `apps/mfx-cli` se publica a npm. Los paquetes bajo `packages/` son
-workspace-internal y nunca se instalan por separado.
+Only `apps/mfx-cli` is published to npm. Packages under `packages/` are
+workspace-internal and never installed separately.
 
 ---
 
 ## Stack
 
-| Área | Elección |
+| Area | Choice |
 |---|---|
-| CLI framework | Commander.js + Ink (React para terminal) |
+| CLI framework | Commander.js + Ink (React for the terminal) |
 | Setup wizard | @clack/prompts |
 | Build / monorepo | Turborepo + esbuild |
 | Tests | Vitest + ink-testing-library + execa |
 
 ---
 
-## Documentación
+## Documentation
 
-- [Requirements](docs/requirements.md) — especificación funcional completa (FR-01 a FR-12)
-- [Architecture](docs/architecture.md) — capas, event bus, distribución, decisiones de diseño
+- [Requirements](docs/requirements.md) — full functional spec (FR-01 to FR-12)
+- [Architecture](docs/architecture.md) — layers, event bus, distribution, design decisions
 
 ---
 
-## Licencia
+## License
 
-MIT — ver [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).

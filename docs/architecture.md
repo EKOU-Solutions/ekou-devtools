@@ -267,13 +267,39 @@ CI mode is **out of scope for v1.** `mfx` is an interactive TUI-first tool;
 
 ---
 
+## Decision: command trust boundary (ADR-0001)
+
+Commands in `mfx.config.json` execute as subprocesses. Three layers of protection:
+
+**Layer 1 — `spawn` with `shell: false` (primary)**
+
+Every command string is parsed into `[binary, ...args]` at config load time. Shell
+metacharacters (`;`, `&`, `|`, `$`, `` ` ``, `>`, `<`) are rejected with an
+actionable error. The subprocess is started as `spawn(binary, args, { shell: false })`.
+Shell injection is structurally impossible.
+
+**Layer 2 — config integrity hash**
+
+On startup, `mfx` hashes the `commands` section of `mfx.config.json` and compares
+it against `.mfx/config.lock` (gitignored, machine-local). If the hash changed,
+the tool displays a diff of modified commands and requires explicit confirmation
+before proceeding.
+
+**Layer 3 — Node.js Permission Model**
+
+The `mfx` process is launched with `--permission` (Node.js 22) / `--experimental-permission`
+(Node.js 20) restricting its own file system access to the project directory (read)
+and `.mfx/` (write). Child processes are allowed. This sandboxes mfx itself;
+child processes (Vite, webpack, etc.) run under normal OS permissions.
+
+> See [ADR-0001](adr/0001-command-trust-boundary.md) for full threat model,
+> options considered, and implementation details.
+
+---
+
 ## Open questions
 
-Not yet decided — pending SPIKE:
-
-- [ ] **Security SPIKE** — explicit trust boundary for shell commands in
-  `mfx.config.json`: sanitize command strings and scope subprocess permissions.
-  Decision deferred until SPIKE is complete.
+None — all questions resolved. See [adr/](adr/) for decision records.
 
 ---
 

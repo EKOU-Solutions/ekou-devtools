@@ -79,14 +79,25 @@ Apply to ALL requirements; not repeated in each one:
   MFE crashed, error starting, etc.).
 - **FR-12** Configurable: the user chooses which notification types to receive.
 
+## Security
+
+- **FR-15** Command strings in `mfx.config.json` must not contain shell metacharacters
+  (`;`, `&`, `|`, `$`, `` ` ``, `>`, `<`). The CLI validates this at config parse
+  time and shows a clear, actionable error explaining how to wrap complex commands
+  in an npm script instead.
+- **FR-16** When `mfx` starts, it compares a SHA-256 hash of the `commands` section
+  against a machine-local cache (`.mfx/config.lock`, gitignored). If the commands
+  changed since the last run, `mfx` shows a diff of the affected entries and requires
+  explicit user confirmation before executing anything. The first run (no lock file)
+  writes the hash silently.
+- **FR-17** `mfx` is launched with Node.js permission constraints restricting its own
+  process to: read access within the project directory, write access within `.mfx/`,
+  and child-process spawning. Minimum supported Node.js version: 20 LTS.
+
 ## v1 Constraints
 
 - **No CI / non-interactive mode.** `mfx` is an interactive TUI-first tool in v1.
   `--json` output and machine-readable exit codes are deferred to a future version.
-- **Security SPIKE (pending).** Commands defined in `mfx.config.json` run as shell
-  commands. Sanitizing command strings and scoping subprocess permissions is
-  required but depends on a SPIKE that is not yet complete; no FR is assigned until
-  the SPIKE produces a decision.
 
 ## UI Mockup
 Claude design URL: https://claude.ai/design/p/36951933-d3f9-4f62-8697-5d626e5b8900?file=EKOU+CLI.dc.html&via=share

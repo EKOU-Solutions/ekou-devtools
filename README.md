@@ -69,8 +69,9 @@ workspace-internal and never installed separately.
 
 ## Documentation
 
-- [Requirements](docs/requirements.md) — full functional spec (FR-01 to FR-12)
+- [Requirements](docs/requirements.md) — full functional spec (FR-01 to FR-17)
 - [Architecture](docs/architecture.md) — layers, event bus, distribution, design decisions
+- [ADR-0001](docs/adr/0001-command-trust-boundary.md) — command trust boundary and security model
 
 ---
 

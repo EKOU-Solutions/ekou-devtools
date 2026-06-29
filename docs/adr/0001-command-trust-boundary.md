@@ -13,6 +13,10 @@
 maliciously crafted config can run arbitrary code with the full privileges of the
 developer's user account.
 
+This falls under **CWE-78** (Improper Neutralization of Special Elements used in
+an OS Command — "OS Command Injection"), which OWASP ranks under
+**A03:2021 — Injection** in the OWASP Top 10.
+
 **Relevant attack vectors:**
 
 | Vector | Example |
@@ -29,10 +33,16 @@ but command-section changes can go unreviewed in noisy PRs.
 
 ## Decision Drivers
 
-- Zero shell injection: the most reliable fix is structural, not pattern-matching.
-- Low friction for legitimate use: standard dev server commands (`vite`, `webpack`, `nx`) must work without changes.
-- v1-feasible: no experimental dependencies that could break across Node versions.
-- Auditable: changes to dangerous config sections must surface to the developer.
+- **No shell invocation** — OWASP Command Injection Prevention Cheat Sheet: *"use
+  safe APIs that avoid use of the interpreter entirely."* Pattern-matching on
+  metacharacters is a weaker, bypassable control.
+- **Low friction for legitimate use** — standard dev server commands (`vite`,
+  `webpack`, `nx`) must work without changes.
+- **Auditable supply chain** — SLSA Source Integrity: changes to build inputs
+  (our "commands" section) must be detectable and require explicit acknowledgement.
+- **Least privilege** — NIST SP 800-53 Rev 5 AC-6: processes should operate
+  with only the permissions required for their function.
+- **v1-feasible** — no experimental dependencies that could break across Node versions.
 
 ---
 
@@ -42,8 +52,8 @@ but command-section changes can go unreviewed in noisy PRs.
 
 Pass the raw command string to `child_process.spawn` with `shell: true`.
 
-- Good: maximum flexibility, user can use pipes and shell operators.
-- Bad: any shell metacharacter in the config is executed — direct injection path.
+- Good: maximum flexibility; user can use pipes and shell operators.
+- Bad: any shell metacharacter in the config is executed — direct CWE-78 path.
 - Bad: no audit trail for config changes.
 
 ### Option B — structural validation + `shell: false` ✓ chosen
@@ -52,18 +62,17 @@ Parse the command string into `[bin, ...args]` using an argv parser and call
 `spawn(bin, args, { shell: false })`. Reject at config-parse time any string that
 contains shell metacharacters (`;`, `&`, `|`, `$`, `` ` ``, `>`, `<`).
 
-- Good: shell injection is structurally impossible — the shell is never invoked.
-- Good: aligns with standard Node.js security guidance.
-- Neutral: user cannot use pipes/redirects in the config directly; they must wrap
-  in an npm script or shell script. This is an acceptable trade-off for a devtool.
-- Bad: requires an argv parser in `packages/core` (hand-rolled to keep zero deps).
+- Good: shell injection is structurally impossible — OWASP's recommended approach.
+- Neutral: user cannot use pipes/redirects directly; they must wrap in an npm script.
+  This is an acceptable trade-off for a devtool.
+- Bad: requires a hand-rolled argv parser in `packages/core` to preserve zero deps.
 
 ### Option C — allowlist of permitted binaries
 
 Only allow a predefined set of binaries (`vite`, `webpack`, `nx`, `ng`, etc.).
 
 - Good: very tight restriction.
-- Bad: breaks any custom command and requires constant maintenance as the ecosystem evolves.
+- Bad: breaks any custom command; requires constant maintenance as the ecosystem evolves.
 - Rejected: too restrictive for a general-purpose devtool.
 
 ---
@@ -72,17 +81,24 @@ Only allow a predefined set of binaries (`vite`, `webpack`, `nx`, `ng`, etc.).
 
 **Chosen: Option B — structural validation + `spawn` with `shell: false`.**
 
-Supplemented by two additional layers:
+Supplemented by two additional layers implementing supply chain integrity
+and process least privilege.
 
-### Layer 1 — `spawn` with `shell: false` (primary)
+---
+
+### Layer 1 — `spawn` with `shell: false`
+
+**Standard:** OWASP Command Injection Prevention Cheat Sheet — *"Use safe APIs to
+avoid use of the interpreter entirely (parameterized OS command execution)."*
+Eliminates CWE-78 structurally.
 
 At config load time, every command string is parsed into `[binary, ...args]`.
-Shell metacharacters are rejected with a clear, actionable error.
+Shell metacharacters are rejected with a clear, actionable error:
 
 ```
 ConfigError: command "app-shell.dev" contains disallowed characters: &
-  Commands must be plain executable + arguments (e.g. "vite --port 5173").
-  To use shell operators, wrap the command in an npm script and reference it:
+  Commands must be a plain executable + arguments (e.g. "vite --port 5173").
+  To use shell operators, wrap the command in an npm script:
     "dev": "npm run dev:app-shell"
 ```
 
@@ -92,16 +108,28 @@ The subprocess is then started as:
 spawn(binary, args, { shell: false, env: process.env })
 ```
 
-### Layer 2 — Config integrity hash (audit trail)
+---
+
+### Layer 2 — Config integrity hash
+
+**Standard:** SLSA Source Integrity (Google / Linux Foundation) — build inputs
+must be verifiable and changes must be explicitly acknowledged. Analogous to
+how npm records `integrity` SHA-512 hashes per package in `package-lock.json`.
 
 On startup, `mfx` computes a SHA-256 of the `commands` section of
 `mfx.config.json`. The hash is stored in `.mfx/config.lock` (gitignored,
-machine-local).
+machine-local):
 
-- **First run / file not found:** hash is written silently, no prompt.
+```json
+{
+  "commandsHash": "sha256:e3b0c44298fc1c149...",
+  "lastVerified": "2026-06-29T14:32:00Z"
+}
+```
+
+- **First run / no lock file:** hash is written silently.
 - **Hash matches:** startup proceeds normally.
-- **Hash mismatch:** `mfx` pauses, displays a diff of which command strings
-  changed, and asks for explicit confirmation before continuing:
+- **Hash mismatch:** `mfx` pauses, shows a diff, and requires explicit confirmation:
 
 ```
 ⚠  mfx.config.json commands changed since last run:
@@ -117,44 +145,58 @@ Continue with updated commands? [y/N]
 
 Answering `y` updates the lock file. Answering `N` exits without running anything.
 
-### Layer 3 — Node.js Permission Model (runtime sandbox for the mfx process)
+---
 
-`mfx` itself is launched with Node.js permission constraints so that the mfx process
-cannot access arbitrary paths or do unexpected things beyond its declared scope:
+### Layer 3 — Node.js Permission Model
+
+**Standard:** NIST SP 800-53 Rev 5, AC-6 — Principle of Least Privilege:
+*"Employ the principle of least privilege, allowing only authorized accesses for
+users (and processes acting on behalf of users) that are necessary to accomplish
+assigned organizational tasks."*
+
+`mfx` is launched with Node.js `--permission` constraints (stable in Node.js 22 LTS;
+`--experimental-permission` on Node.js 20 LTS) restricting the mfx process itself:
 
 | Permission | Scope |
 |---|---|
 | `--allow-fs-read` | Project directory (cwd) |
 | `--allow-fs-write` | `.mfx/` directory only |
 | `--allow-child-process` | Required to spawn MFE dev servers |
-| `--allow-env` | Allowed (dev servers need environment variables) |
+| `--allow-env` | Allowed (dev servers require environment variables) |
 
-This is applied via a thin wrapper script in `apps/mfx-cli/bin/mfx` (the npm
-binary entry point).
-
-> **Note:** the Permission Model (`--permission`) became unflagged in Node.js 22.
-> The `--experimental-permission` alias (Node 20) is also supported. Minimum
-> Node.js version for `mfx` is set to 20 LTS.
+Applied via the wrapper script at `apps/mfx-cli/bin/mfx` (the npm binary entry point).
 
 This layer sandboxes **the mfx process**, not the child processes it spawns.
-Child processes (e.g. Vite, webpack) run under the operating system's normal
-permission model for the user. Future versions may add per-MFE restrictions.
+Child processes (Vite, webpack, etc.) run under the OS's normal permission model
+for the user — this is intentional; dev servers require broad project access.
 
 ---
 
 ## Positive Consequences
 
-- Shell injection via `mfx.config.json` is structurally impossible in v1.
-- Developers are automatically alerted when command definitions change.
-- The mfx process itself cannot access files outside its declared scope.
+- CWE-78 (OS Command Injection) is structurally eliminated at Layer 1.
+- Developers are automatically alerted when command definitions change (SLSA-aligned).
+- The mfx process operates under least privilege (NIST AC-6).
 
 ## Negative Consequences
 
-- Users with legitimate pipe-based commands (`tsc --watch | prettier --stdin`) must
-  refactor them into npm scripts. Error message provides clear guidance.
-- The `.mfx/config.lock` file must be added to `.gitignore`; `mfx init` and `eject`
-  handle this automatically.
-- Node.js ≥ 20 is required (already aligned with team's tooling baseline).
+- Users with pipe-based commands (`tsc --watch | prettier --stdin`) must refactor
+  them into npm scripts. The error message provides clear guidance.
+- `.mfx/config.lock` must be in `.gitignore`; `mfx init` and `eject` handle this.
+- Node.js ≥ 20 LTS is required (already aligned with team baseline).
+
+---
+
+## Standards referenced
+
+| Standard | Layer | Source |
+|---|---|---|
+| CWE-78 — OS Command Injection | 1 | MITRE / NIST NVD |
+| OWASP A03:2021 — Injection | 1 | OWASP Top 10 |
+| OWASP Command Injection Prevention Cheat Sheet | 1 | OWASP |
+| SLSA Source Integrity | 2 | Google / Linux Foundation |
+| npm `package-lock.json` integrity hashes | 2 | npm / GitHub |
+| NIST SP 800-53 Rev 5, AC-6 — Least Privilege | 3 | NIST |
 
 ---
 

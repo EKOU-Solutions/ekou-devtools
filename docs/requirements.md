@@ -32,6 +32,8 @@ Apply to ALL requirements; not repeated in each one:
   - **Port range** (see §Port Assignment).
   - **Run commands per mode:** dev, build, build+watch, etc.; with support
     for custom commands per mode.
+  - **`$schemaVersion`:** version of the config schema. The CLI migrates older
+    configs automatically on startup; unknown versions emit a warning.
 
 ## Port Assignment
 - `ports` omitted → Vite default (5173), sequential +1 per MFE.
@@ -50,9 +52,16 @@ Apply to ALL requirements; not repeated in each one:
 - **FR-03** Allows selecting which MFE(s) to start.
 - **FR-04** Each MFE has a default port (editable) and mode, both individual.
 - **FR-05** When starting an MFE, opens the browser at its URL **only the first time**
-  that MFE runs in the session; on restarts it does not reopen it.
+  that MFE runs in the session; on restarts it does not reopen it. Before opening,
+  the CLI polls the port until it accepts connections; if a stale process is holding
+  the port it is auto-purged first and a notification is emitted (see FR-11).
 - **FR-06** Menu option to open a specific MFE or all running ones in the browser;
   if there are multiple, shows a selector.
+- **FR-13** When an MFE crashes unexpectedly (without user action), the CLI shows
+  a visual error state for that MFE in the TUI and emits a `MFECrashed` notification.
+  No auto-retry — the user decides whether to restart.
+- **FR-14** When the user selects `dev+build-watch` mode for an MFE, ports are
+  assigned automatically; the user does not need to resolve port conflicts manually.
 
 ## Logs
 - **FR-07** Displays the live log of the running MFE.
@@ -66,8 +75,18 @@ Apply to ALL requirements; not repeated in each one:
 
 ## Notifications Panel
 - **FR-10** Notifications panel togglable from the bottom menu.
-- **FR-11** Displays real-time events (MFE started, MFE purged, error starting, etc.).
+- **FR-11** Displays real-time events (MFE started, MFE purged, port auto-purged,
+  MFE crashed, error starting, etc.).
 - **FR-12** Configurable: the user chooses which notification types to receive.
+
+## v1 Constraints
+
+- **No CI / non-interactive mode.** `mfx` is an interactive TUI-first tool in v1.
+  `--json` output and machine-readable exit codes are deferred to a future version.
+- **Security SPIKE (pending).** Commands defined in `mfx.config.json` run as shell
+  commands. Sanitizing command strings and scoping subprocess permissions is
+  required but depends on a SPIKE that is not yet complete; no FR is assigned until
+  the SPIKE produces a decision.
 
 ## UI Mockup
 Claude design URL: https://claude.ai/design/p/36951933-d3f9-4f62-8697-5d626e5b8900?file=EKOU+CLI.dc.html&via=share

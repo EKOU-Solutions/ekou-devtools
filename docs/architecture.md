@@ -133,10 +133,10 @@ flowchart TD
     check -- No --> refresh
 ```
 
-> **Open question:** there is no "ready to accept connections?" check before
-> opening the browser. Without it, the first open may hit a dev server that
-> hasn't finished starting. Options: poll the port vs. parse the Vite/webpack
-> log output. See §Open questions below.
+> **Decision:** before opening the browser, the orchestrator polls the assigned
+> port with a TCP connect probe until it accepts connections. If the port is
+> occupied by a stale process, it is auto-purged first; a `PortPurged`
+> notification is emitted so the user is always informed.
 
 ---
 
@@ -213,18 +213,67 @@ a single self-contained `index.js`.
 
 ---
 
+## Decision: MFE crash handling
+
+When an MFE child process exits unexpectedly (without user action):
+- The orchestrator emits a `MFECrashed` notification (visible in the notifications panel).
+- The TUI shows a visual error state for that MFE (e.g. error badge / red indicator).
+- No auto-retry — the user decides whether to restart.
+
+---
+
+## Decision: Ctrl+C / clean shutdown
+
+`SIGKILL` is sent directly to all child processes on Ctrl+C. No SIGTERM-then-timeout
+phase. This preserves the standard Ctrl+C behavior users expect — immediate termination.
+
+---
+
+## Decision: two `mfx` instances against the same config
+
+- **CLI-level:** if a second `mfx` process tries to start against the same
+  `mfx.config.json`, the first instance is aborted (lock-and-abort strategy).
+- **MFE-level (dev + build-watch):** when the user selects `dev+build-watch` mode
+  for an MFE, ports are auto-assigned — no manual port-conflict resolution needed.
+
+---
+
+## Decision: cross-platform port purge
+
+The port purge adapter auto-detects the OS and uses the appropriate strategy:
+
+| Platform | Command |
+|---|---|
+| macOS / Linux / Unix | `lsof -ti:<port>` + `kill -9` |
+| Windows | `netstat -ano` + `taskkill /F /PID` |
+
+No user configuration needed.
+
+---
+
+## Decision: CI / non-interactive mode
+
+CI mode is **out of scope for v1.** `mfx` is an interactive TUI-first tool;
+`--json` output and machine-readable exit codes are deferred to a future version.
+
+---
+
+## Decision: `mfx.config.json` schema versioning
+
+`mfx.config.json` includes a `$schemaVersion` field. On startup, the orchestrator:
+1. Validates the version against the known set.
+2. Applies automatic migrations for known version gaps.
+3. If the version is missing or unknown, emits a warning and falls back to the latest schema.
+
+---
+
 ## Open questions
 
-Not out of scope — just not yet decided:
+Not yet decided — pending SPIKE:
 
-- [ ] "Ready to accept connections" detection before opening the browser (FR-05)
-- [ ] Behavior when an MFE crashes on its own, without user action
-- [ ] Ctrl+C propagation to all child processes (clean shutdown)
-- [ ] Two `mfx` instances running against the same `mfx.config.json`
-- [ ] Cross-platform port purge (Windows vs. Unix)
-- [ ] Non-interactive / CI mode (`--json` flag, exit codes)
-- [ ] Explicit trust boundary: arbitrary shell commands in `mfx.config.json`
-- [ ] `mfx.config.json` schema versioning and migration
+- [ ] **Security SPIKE** — explicit trust boundary for shell commands in
+  `mfx.config.json`: sanitize command strings and scope subprocess permissions.
+  Decision deferred until SPIKE is complete.
 
 ---
 
